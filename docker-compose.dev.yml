@@ -1,0 +1,44 @@
+version: "3.7"
+
+services:
+  traefik:
+    image: "traefik:v2.4"
+    container_name: traefik
+    restart: unless-stopped
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik/traefik.yml:/etc/traefik/traefik.yml:ro"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.port=8080"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+    networks:
+      - traefik-proxy
+  sveltekit:
+    build:
+      context: "./sveltekit"
+      target: dev
+    container_name: sveltekit
+    volumes:
+      - "./sveltekit/src/:/usr/src/app/src/"
+      - "/usr/src/app/node_modules"
+    environment:
+      - "VITE_TEST_ENV_VAR=${TEST_ENV_VAR:?You need to provide TEST_ENV_VAR in the .env file}"
+    expose:
+      - 3000
+      - 24678
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sveltekit.entrypoints=web"
+      - "traefik.http.routers.sveltekit.rule=PathPrefix(`/`)"
+      - "traefik.http.services.sveltekit.loadbalancer.server.port=3000"
+    networks:
+      - traefik-proxy
+
+networks:
+  traefik-proxy:
+    name: traefik-proxy
